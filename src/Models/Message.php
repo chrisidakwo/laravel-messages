@@ -3,6 +3,8 @@
 namespace ChrisIdakwo\Messages\Models;
 
 use ChrisIdakwo\Messages\MessagesRegistrar;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Message extends Model {
     /**
@@ -38,42 +40,42 @@ class Message extends Model {
     /**
      * Room relationship.
      *
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     * @return BelongsTo
      *
      * @codeCoverageIgnore
      */
-    public function room() {
+    public function room(): BelongsTo {
         return $this->belongsTo(MessagesRegistrar::getModelFQN('room'), 'room_id', 'id');
     }
 
     /**
      * Sender relationship. Directly relates to the users table.
      *
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     * @return BelongsTo
      *
      * @codeCoverageIgnore
      */
-    public function sender() {
+    public function sender(): BelongsTo {
         return $this->belongsTo(MessagesRegistrar::getUserModelFQN(), 'sender_id');
     }
 
     /**
      * Room member relationship.
      *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     * @return HasMany
      *
      * @codeCoverageIgnore
      */
-    public function roomMembers() {
+    public function roomMembers(): HasMany {
         return $this->hasMany(MessagesRegistrar::getModelFQN('room_member'), 'room_id', 'room_id');
     }
 
     /**
      * Recipients of this message.
      *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     * @return HasMany
      */
-    public function recipients() {
+    public function recipients(): HasMany {
         return $this->roomMembers()->where('member_id', '!=', $this->sender_id);
     }
 

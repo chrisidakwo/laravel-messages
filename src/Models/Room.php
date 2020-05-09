@@ -5,9 +5,11 @@ namespace ChrisIdakwo\Messages\Models;
 use ChrisIdakwo\Messages\MessagesRegistrar;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 
 class Room extends Model {
     use SoftDeletes;
@@ -45,7 +47,7 @@ class Room extends Model {
     /**
      * Returns the latest message from a thread.
      *
-     * @return null|\ChrisIdakwo\Messages\Models\Message
+     * @return null|Model
      */
     public function getLatestMessageAttribute() {
         return $this->messages()->latest()->first();
@@ -56,7 +58,7 @@ class Room extends Model {
      *
      * @param string $topic
      *
-     * @return Room[]|Collection
+     * @return Model[]|Collection
      */
     public static function findByTopic($topic) {
         return static::where('topic', 'LIKE', "%{$topic}%")->get();
@@ -69,7 +71,7 @@ class Room extends Model {
      *
      * @return array
      */
-    public function getMembersUserIds($userId = null) {
+    public function getMembersUserIds($userId = null): array {
         $users = $this->members()->withTrashed()->get()->pluck('member_id');
 
         if ($userId !== null) {
@@ -82,12 +84,12 @@ class Room extends Model {
     /**
      * Returns rooms that the user is associated with.
      *
-     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param Builder $query
      * @param int $userId
      *
-     * @return \Illuminate\Database\Eloquent\Builder
+     * @return Builder
      */
-    public function scopeForUser(Builder $query, $userId) {
+    public function scopeForUser(Builder $query, $userId): Builder {
         $roomMembersTable = MessagesRegistrar::getTable('room_members');
         $roomsTable = $this->getTable();
 
@@ -100,12 +102,12 @@ class Room extends Model {
     /**
      * Returns rooms with new messages that the user is associated with.
      *
-     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param Builder $query
      * @param int $userId
      *
-     * @return \Illuminate\Database\Eloquent\Builder
+     * @return Builder
      */
-    public function scopeForUserWithLatestMessages(Builder $query, $userId) {
+    public function scopeForUserWithLatestMessages(Builder $query, $userId): Builder {
         $roomMembersTable = MessagesRegistrar::getTable('room_members');
         $messagesTable = MessagesRegistrar::getTable('messages');
         $roomsTable = $this->getTable();
@@ -130,12 +132,12 @@ class Room extends Model {
     /**
      * Returns rooms shared by the given user ids.
      *
-     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param Builder $query
      * @param array $roomMembers
      *
-     * @return \Illuminate\Database\Eloquent\Builder
+     * @return Builder
      */
-    public function scopeBetween(Builder $query, array $roomMembers) {
+    public function scopeBetween(Builder $query, array $roomMembers): Builder {
         return $query->whereHas('members', function (Builder $q) use ($roomMembers) {
             $q->whereIn('member_id', $roomMembers)
                 ->select($this->getConnection()->raw('DISTINCT(room_id)'))
@@ -149,7 +151,7 @@ class Room extends Model {
      *
      * @param array|mixed $userId
      *
-     * @return \Illuminate\Support\Collection|RoomMember[]
+     * @return \Illuminate\Support\Collection|Model[]
      */
     public function addMembers($userId) {
         $userIds = is_array($userId) ? $userId : (array) func_get_args();
@@ -173,7 +175,7 @@ class Room extends Model {
      *
      * @return void
      */
-    public function removeMembers($userId) {
+    public function removeMembers($userId): void {
         $userIds = is_array($userId) ? $userId : (array) func_get_args();
 
         $roomMemberModel = MessagesRegistrar::roomMember();
@@ -186,7 +188,7 @@ class Room extends Model {
      *
      * @param   int|string $userId
      * @return  mixed
-     * @throws  \Illuminate\Database\Eloquent\ModelNotFoundException
+     * @throws  ModelNotFoundException
      */
     public function getMembershipFromUser($userId) {
         return $this->members()->where('member_id', $userId)->firstOrFail();
@@ -197,18 +199,18 @@ class Room extends Model {
      *
      * @return array
      */
-    public function getMembersInformation() {
+    public function getMembersInformation(): array {
         return $this->users()->get()->pluck('full_name')->toArray();
     }
 
     /**
      * Checks to see if a user is a current member of the group.
      *
-     * @param int $userId
+     * @param int|string $userId
      *
      * @return bool
      */
-    public function hasMember($userId) {
+    public function hasMember($userId): bool {
         return $this->members()->where('member_id', $userId)->exists();
     }
 
@@ -224,33 +226,33 @@ class Room extends Model {
     /**
      * Messages relationship.
      *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     * @return HasMany
      *
      * @codeCoverageIgnore
      */
-    public function messages() {
+    public function messages(): HasMany {
         return $this->hasMany(MessagesRegistrar::getModelFQN('message'), 'room_id', 'id');
     }
 
     /**
      * Members relationship (directly referencing the room_members joint table).
      *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     * @return HasMany
      *
      * @codeCoverageIgnore
      */
-    public function members() {
+    public function members(): HasMany {
         return $this->hasMany(MessagesRegistrar::getModelFQN('room_member'), 'room_id', 'id');
     }
 
     /**
      * Members relationship (directly referencing the user model of the associated members).
      *
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
+     * @return BelongsToMany
      *
      * @codeCoverageIgnore
      */
-    public function users() {
+    public function users(): BelongsToMany {
         return $this->belongsToMany(MessagesRegistrar::getUserModelFQN(), MessagesRegistrar::getTable('room_members'), 'room_id', 'member_id');
     }
 
